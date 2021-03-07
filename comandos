@@ -1,0 +1,2 @@
+#criar diretórios
+mkdir -p arquivos/RAT arquivos/BOS

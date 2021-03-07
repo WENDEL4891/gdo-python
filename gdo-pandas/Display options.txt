@@ -1,0 +1,19 @@
+Dicas:
+
+Configurações de visualização:
+
+pd.options.display
+
+ex:
+
+pd.get_option('display.max_rows')
+pd.options.display.max_rows = 999
+pd.get_option('display.max_rows')
+pd.reset_option('display.max_rows')
+pd.get_option('display.max_rows')
+
+pd.get_option('display.max_columns')
+pd.options.display.max_columns = 50
+pd.get_option('display.max_columns')
+pd.reset_option('display.max_columns')
+pd.get_option('display.max_columns')

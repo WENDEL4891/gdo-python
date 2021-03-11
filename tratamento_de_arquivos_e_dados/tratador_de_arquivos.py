@@ -57,7 +57,7 @@ class tratador_de_arquivos:
             os arquivos cujos números de RAT ou BOS estejam presentes no Banco de Dados.
         '''
         if not tipo_geral:
-            nrat_ou_nbos_no_bd = get_nrat_ou_nbos_no_db()
+            nrat_ou_nbos_no_bd = self.get_nrat_ou_nbos_no_db()
         if len( nomes_de_arquivos) < 1:
             raise Exception('Não há arquivos csv novos para serem inseridos no banco de dados.')
         for i in range( len(nomes_de_arquivos) ):    
@@ -101,9 +101,9 @@ class tratador_de_arquivos:
         with sqlite3.connect('gdo.db') as conn:
             cursor = conn.cursor()
             if rat_ou_bos == 'RAT':
-                nrat_ou_nbos_no_db = cursor.execute('SELECT "RAT.NUM_ATIVIDADE" from "tbl_rat"').fetchall()
+                nrat_ou_nbos_no_db = cursor.execute('SELECT "RAT.NUM_ATIVIDADE" from "tbl_rat_geral"').fetchall()
             if rat_ou_bos == 'BOS':
-                nrat_ou_nbos_no_db = cursor.execute('SELECT "RAT.NUM_ATIVIDADE" from "tbl_bos"').fetchall()
+                nrat_ou_nbos_no_db = cursor.execute('SELECT "RAT.NUM_ATIVIDADE" from "tbl_bos_geral"').fetchall()
         return list(itertools.chain(*nrat_ou_nbos_no_db))
 
     def get_df_classif(self):

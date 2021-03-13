@@ -26,7 +26,7 @@ class dados_para_bd():
         tipo_geral_argumento = True if tipo == 'geral' else False
 
         logs.log('Iniciando método tratador_de_arquivos().ler_arquivos()')
-        df_rat = tratador_de_arquivos().ler_arquivos(nomes_de_arquivos['rat_{}'.format(tipo)], rat_ou_bos=rat_ou_bos_lower, tipo_geral=tipo_geral_argumento)
+        df_rat = tratador_de_arquivos().ler_arquivos(nomes_de_arquivos['{}_{}'.format(rat_ou_bos_lower, tipo)], rat_ou_bos=rat_ou_bos_lower, tipo_geral=tipo_geral_argumento)
         logs.log('Finalizando método tratador_de_arquivos().ler_arquivos()')
 
         if tipo == 'geral':        
@@ -62,7 +62,7 @@ class dados_para_bd():
         acao_se_tabela_existir = 'replace' if ( tipo == 'geral' and apenas_nao_importados == False ) else 'append'
 
         logs.log('Iniciando a inclusão dos nomes dos arquivos importados no banco de dados')
-        pd.DataFrame(nomes_de_arquivos['rat_{}'.format(tipo)]).to_sql('tbl_imported_files', 'sqlite:///gdo.db', if_exists=acao_se_tabela_existir, index=False)        
+        pd.DataFrame(nomes_de_arquivos['{}_{}'.format(rat_ou_bos_lower, tipo.lower())]).to_sql('tbl_arquivos_importados_{}'.format(rat_ou_bos_lower), 'sqlite:///gdo.db', if_exists=acao_se_tabela_existir, index=False)        
         logs.log('Finalizando a inclusão dos nomes dos arquivos importados no banco de dados')
         
         logs.log_inicio_fim_metodo('Finalizando método dados_para_bd().dados_dos_arquivos_para_bd.')

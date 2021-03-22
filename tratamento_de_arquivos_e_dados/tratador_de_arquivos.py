@@ -10,7 +10,7 @@ class tratador_de_arquivos:
         rat_ou_bos_upper = rat_ou_bos.upper()
 
         dir = os.getcwd()
-        nomes_de_arquivos = os.listdir(dir+'/arquivos/{}'.format(rat_ou_bos))
+        nomes_de_arquivos = os.listdir(dir+'/arquivos/{}'.format(rat_ou_bos_upper))
         
         nomes_de_arquivos_geral = list()
         nomes_de_arquivos_viaturas = list()
@@ -18,7 +18,7 @@ class tratador_de_arquivos:
         nomes_de_arquivos_produtividade = list()
 
         if apenas_nao_importados:
-            df_arquivos_importados = pd.read_sql_table('tbl_imported_files_{}'.format(rat_ou_bos_lower), 'sqlite:///gdo.db')
+            df_arquivos_importados = pd.read_sql_table('tbl_arquivos_importados_{}'.format(rat_ou_bos_lower), 'sqlite:///gdo.db')
             nomes_de_arquivos = [nome_de_arquivo for nome_de_arquivo in nomes_de_arquivos if nome_de_arquivo not in df_arquivos_importados['0'].values ]
 
         for nome_de_arquivo in nomes_de_arquivos:
@@ -55,7 +55,7 @@ class tratador_de_arquivos:
             os arquivos cujos números de RAT ou BOS estejam presentes no Banco de Dados.
         '''
         if not tipo_geral:
-            nrat_ou_nbos_no_bd = self.get_nrat_ou_nbos_no_db()
+            nrat_ou_nbos_no_bd = self.get_nrat_ou_nbos_no_db(rat_ou_bos=rat_ou_bos.upper())
         if len( nomes_de_arquivos) < 1:
             raise Exception('Não há arquivos csv novos para serem inseridos no banco de dados.')
         for i in range( len(nomes_de_arquivos) ):    
@@ -192,23 +192,21 @@ class tratador_de_arquivos:
         elif ( mun + ' COMPLEMENTO_END ' + row['DES_ENDERECO'] ) in df_classif.index:
             return df_classif.loc[mun + ' COMPLEMENTO_END ' + row['DES_ENDERECO'], 'SETOR']    
         else:
-            return 'other'
+            return 'SETOR_INDEFINIDO'
     
-    def classifica_cia(self, df_rat):
+    def classifica_cia(self, df):
         conds=[
-            df_rat['MUNICIPIO'].isin(['ITAUNA','ITATIAIUCU']),
-            df_rat['SETOR'].isin(['HIPER CENTRO','BOM PASTOR','ALTO GOIAS']),
-            df_rat['SETOR'].isin(['PLANALTO','SAO JOSE','CLAUDIO']),
-            df_rat['SETOR'].isin(['NITEROI','PORTO VELHO','CARMO DO CAJURU/SAO GONCALO DO PARA']),
+            df['MUNICIPIO'].isin(['ITAUNA','ITATIAIUCU']),
+            df['SETOR'].isin(['HIPER CENTRO','BOM PASTOR','ALTO GOIAS']),
+            df['SETOR'].isin(['PLANALTO','SAO JOSE','CLAUDIO']),
+            df['SETOR'].isin(['NITEROI','PORTO VELHO','CARMO DO CAJURU/SAO GONCALO DO PARA']),
             
         ]
         res=['51 CIA','53 CIA','139 CIA','142 CIA']
-        df_rat['CIA'] = np.select(conds,res,default='other')
+        df['CIA'] = np.select(conds,res,default='CIA_INDEFINIDA')
     
-    def get_rat_gdo(self):
-        ######################### CRIA df_rat
-        # df_rat_gdo = pd.read_sql_table('tbl_rat', 'sqlite:///gdo.db')
-        
+    def get_dados_rat_gdo(self):
+        ######################### CRIA df_rat_gdo
         lista_naturezas_rat_gdo = ['Y07001', 'Y07003', 'Y07004', 'Y07005', 'Y04012']
         string_naturezas_rat_gdo = ", ".join('"{}"'.format(item) for item in lista_naturezas_rat_gdo)
         with sqlite3.connect('gdo.db') as conn:
@@ -216,38 +214,35 @@ class tratador_de_arquivos:
             dados = cursor.execute('select * from "tbl_rat_geral" where "NAT.CODIGO" in ({})'.format(string_naturezas_rat_gdo)).fetchall()
         colunas = [ description[0] for description in cursor.description ]
         df_rat_gdo = pd.DataFrame(dados, columns = colunas)        
-        df_rat_gdo.set_index('RAT.NUM_ATIVIDADE', inplace=True)
-        df_rat_gdo_23 = df_rat_gdo[
-            ~ df_rat_gdo['NOM_UNID_RESPONSAVEL'].str.contains('(IND |B|C)PE')
-        ]
+        df_rat_gdo.set_index('RAT.NUM_ATIVIDADE', inplace=True)        
 
         ######################### BUSCA DADOS DE VIATURAS E ACRESCENTA EM df_rat
         df_ratv_gdo = pd.read_sql_table('tbl_rat_viaturas', 'sqlite:///gdo.db')
         df_ratv_gdo = df_ratv_gdo['NUM_ATIVIDADE'].value_counts()
         df_ratv_gdo.rename('VIATURAS', inplace=True)
-        df_rat_gdo_23 = df_rat_gdo_23.join(df_ratv_gdo, how='left')
+        df_rat_gdo = df_rat_gdo.join(df_ratv_gdo, how='left')
         del df_ratv_gdo
-        df_rat_gdo_23['VIATURAS'].fillna(0, inplace=True)
-        df_rat_gdo_23['VIATURAS'] = df_rat_gdo_23['VIATURAS'].astype('uint8')
+        df_rat_gdo['VIATURAS'].fillna(0, inplace=True)
+        df_rat_gdo['VIATURAS'] = df_rat_gdo['VIATURAS'].astype('uint8')
 
         ######################### BUSCA DADOS DE EFETIVO E ACRESCENTA EM df_rat
         df_rate_gdo = pd.read_sql_table('tbl_rat_efetivo', 'sqlite:///gdo.db')
         df_rate_gdo = df_rate_gdo['NUM_ATIVIDADE'].value_counts()
         df_rate_gdo.rename('EFETIVO', inplace=True)
-        df_rat_gdo_23 = df_rat_gdo_23.join(df_rate_gdo, how='left')
+        df_rat_gdo = df_rat_gdo.join(df_rate_gdo, how='left')
         del df_rate_gdo
-        df_rat_gdo_23['EFETIVO'].fillna(0, inplace=True)
-        df_rat_gdo_23['EFETIVO'] = df_rat_gdo_23['EFETIVO'].astype('uint8')
+        df_rat_gdo['EFETIVO'].fillna(0, inplace=True)
+        df_rat_gdo['EFETIVO'] = df_rat_gdo['EFETIVO'].astype('uint8')
 
         ######################### BUSCA DADOS DE PRODUTIVIDADE E ACRESCENTA EM df_rat
         df_ratp_gdo = pd.read_sql_table('tbl_rat_produtividade', 'sqlite:///gdo.db')
         df_ratp_gdo_efet = df_ratp_gdo[
             df_ratp_gdo['DESCRICAO'].isin(constantes.ITENS_QUE_COMPUTAM_PRODUTIVIDADE)
         ].drop_duplicates('RAT.NUM_ATIVIDADE').set_index('RAT.NUM_ATIVIDADE')['QUANTIDADE'].map(lambda qtd:1).rename('EFETIVIDADE_PARCIAL')
-        df_rat_gdo_23 = df_rat_gdo_23.join(df_ratp_gdo_efet, how='left')
+        df_rat_gdo = df_rat_gdo.join(df_ratp_gdo_efet, how='left')
         del df_ratp_gdo_efet
-        df_rat_gdo_23['EFETIVIDADE_PARCIAL'].fillna(0, inplace=True)
-        df_rat_gdo_23['EFETIVIDADE_PARCIAL'] = df_rat_gdo_23['EFETIVIDADE_PARCIAL'].astype('int8')
+        df_rat_gdo['EFETIVIDADE_PARCIAL'].fillna(0, inplace=True)
+        df_rat_gdo['EFETIVIDADE_PARCIAL'] = df_rat_gdo['EFETIVIDADE_PARCIAL'].astype('int8')
 
         df_itens_ee = df_ratp_gdo[
             df_ratp_gdo['DESCRICAO'].isin([
@@ -259,137 +254,222 @@ class tratador_de_arquivos:
         ]
         df_itens_ee = pd.pivot_table(df_itens_ee, columns='DESCRICAO', index='RAT.NUM_ATIVIDADE')
         df_itens_ee.columns = df_itens_ee.columns.droplevel()
-        df_rat_gdo_23 = df_rat_gdo_23.join(df_itens_ee, how='left')
+        df_rat_gdo = df_rat_gdo.join(df_itens_ee, how='left')
         for i in [
             'Qde de veiculos fiscalizados',
             'Qde de pessoas abordadas',
             'Qde de locais fiscalizados',
             'Qde de pessoas que sopraram o etilometro'
         ]:
-            df_rat_gdo_23[i].fillna(0, inplace=True)
-            df_rat_gdo_23[i] = df_rat_gdo_23[i].astype('int16')
+            df_rat_gdo[i].fillna(0, inplace=True)
+            df_rat_gdo[i] = df_rat_gdo[i].astype('int16')
         del df_ratp_gdo
 
-        cond71 = (
+        condicoes_ee_y07001 = (
             # Y07001 - OPERACAO DE BATIDA POLICIAL
             (
-                (df_rat_gdo_23['NAT.CODIGO'] == 'Y07001') &
-                (df_rat_gdo_23['TEMPO_INTEIRO'] >= 30) &
-                (df_rat_gdo_23['EFETIVO'] >= 2)
+                (df_rat_gdo['NAT.CODIGO'] == 'Y07001') &
+                (df_rat_gdo['TEMPO_INTEIRO'] >= 30) &
+                (df_rat_gdo['EFETIVO'] >= 2)
             ) &
             (
-                (df_rat_gdo_23['Qde de pessoas abordadas'] >= 5) |
-                (df_rat_gdo_23['Qde de veiculos fiscalizados'] >= 2)
+                (df_rat_gdo['Qde de pessoas abordadas'] >= 5) |
+                (df_rat_gdo['Qde de veiculos fiscalizados'] >= 2)
             )
         )
-        cond73 = (
+        condicoes_ee_y07003 = (
             # Y07003 - OPERACAO DE INCURSAO EM ZONA QUENTE DE CRIMINALIDADE
             (
-                (df_rat_gdo_23['NAT.CODIGO'] == 'Y07003') &
-                (df_rat_gdo_23['TEMPO_INTEIRO'] >= 30) &
-                (df_rat_gdo_23['EFETIVO'] >= 3) &
-                (df_rat_gdo_23['VIATURAS'] >= 1)
+                (df_rat_gdo['NAT.CODIGO'] == 'Y07003') &
+                (df_rat_gdo['TEMPO_INTEIRO'] >= 30) &
+                (df_rat_gdo['EFETIVO'] >= 3) &
+                (df_rat_gdo['VIATURAS'] >= 1)
             ) &
             (
-                (df_rat_gdo_23['Qde de pessoas abordadas'] >= 5) |
-                (df_rat_gdo_23['Qde de veiculos fiscalizados'] >= 2) |
-                (df_rat_gdo_23['Qde de locais fiscalizados'] >= 2)
+                (df_rat_gdo['Qde de pessoas abordadas'] >= 5) |
+                (df_rat_gdo['Qde de veiculos fiscalizados'] >= 2) |
+                (df_rat_gdo['Qde de locais fiscalizados'] >= 2)
             )
         )
-        cond74 = (
+        condicoes_ee_y07004 = (
             # Y07004 - OPERACAO DE CERCO / BLOQUEIO / INTERCEPTACAO
             (
                 (
-                    (df_rat_gdo_23['NAT.CODIGO'] == 'Y07004') &            
-                    (df_rat_gdo_23['EFETIVO'] >= 3) &
-                    (df_rat_gdo_23['VIATURAS'] >= 2)
+                    (df_rat_gdo['NAT.CODIGO'] == 'Y07004') &            
+                    (df_rat_gdo['EFETIVO'] >= 3) &
+                    (df_rat_gdo['VIATURAS'] >= 2)
                 ) &
                 (
-                    (df_rat_gdo_23['Qde de pessoas abordadas'] >= 1) |
-                    (df_rat_gdo_23['Qde de veiculos fiscalizados'] >= 1)
+                    (df_rat_gdo['Qde de pessoas abordadas'] >= 1) |
+                    (df_rat_gdo['Qde de veiculos fiscalizados'] >= 1)
                 )
             )
         )
-        cond75 = (
+        condicoes_ee_y07005 = (
             # Y07005 - OPERACAO DE OCUPACAO DE PTOS DE ZONA QUENTE DE CRIMINALIDADE
             (
-                (df_rat_gdo_23['NAT.CODIGO'] == 'Y07005') &
-                (df_rat_gdo_23['TEMPO_INTEIRO'] >= 60) &
-                (df_rat_gdo_23['EFETIVO'] >= 3) &
-                (df_rat_gdo_23['VIATURAS'] >= 1)
+                (df_rat_gdo['NAT.CODIGO'] == 'Y07005') &
+                (df_rat_gdo['TEMPO_INTEIRO'] >= 60) &
+                (df_rat_gdo['EFETIVO'] >= 3) &
+                (df_rat_gdo['VIATURAS'] >= 1)
             ) &
             (
-                (df_rat_gdo_23['Qde de pessoas abordadas'] >= 5) |
-                (df_rat_gdo_23['Qde de veiculos fiscalizados'] >= 2) |
-                (df_rat_gdo_23['Qde de locais fiscalizados'] >= 2)
+                (df_rat_gdo['Qde de pessoas abordadas'] >= 5) |
+                (df_rat_gdo['Qde de veiculos fiscalizados'] >= 2) |
+                (df_rat_gdo['Qde de locais fiscalizados'] >= 2)
             )    
         )
-        cond412 = (
+
+        condicoes_ee_rqv = [
+            condicoes_ee_y07001 |
+            condicoes_ee_y07003 |
+            condicoes_ee_y07004 |
+            condicoes_ee_y07005
+        ]
+
+        condicoes_ee_ols = (
             # Y04012 - OPERACAO LEI SECA
             (
-                (df_rat_gdo_23['NAT.CODIGO'] == 'Y04012') &
-                (df_rat_gdo_23['TEMPO_INTEIRO'] >= 30) &
-                (df_rat_gdo_23['EFETIVO'] >= 2) &
-                (df_rat_gdo_23['VIATURAS'] >= 1)
+                (df_rat_gdo['NAT.CODIGO'] == 'Y04012') &
+                (df_rat_gdo['TEMPO_INTEIRO'] >= 30) &
+                (df_rat_gdo['EFETIVO'] >= 2) &
+                (df_rat_gdo['VIATURAS'] >= 1)
             ) &
             (
-                (df_rat_gdo_23['Qde de pessoas abordadas'] >= 3) |
-                (df_rat_gdo_23['Qde de pessoas que sopraram o etilometro'] >= 3) |
-                (df_rat_gdo_23['Qde de veiculos fiscalizados'] >= 3)
+                (df_rat_gdo['Qde de pessoas abordadas'] >= 3) |
+                (df_rat_gdo['Qde de pessoas que sopraram o etilometro'] >= 3) |
+                (df_rat_gdo['Qde de veiculos fiscalizados'] >= 3)
             )
         )
 
-        cond_ee = [
-            cond71 |
-            cond73 |
-            cond74 |
-            cond75 |
-            cond412
-        ]
-
-        df_rat_gdo_23['EFICIENCIA_E_EFICACIA'] = np.select(cond_ee,[1],default=0)
-        df_rat_gdo_23['EFETIVIDADE'] = np.select(
-            [(df_rat_gdo_23['EFETIVIDADE_PARCIAL'] == 1) & (df_rat_gdo_23['EFICIENCIA_E_EFICACIA'] == 1)],
+        df_rat_gdo['EFICIENCIA_E_EFICACIA_RQV'] = np.select(condicoes_ee_rqv,[1],default=0)
+        df_rat_gdo['EFICIENCIA_E_EFICACIA_OLS'] = np.select([condicoes_ee_ols], [1], default=0)
+        df_rat_gdo['EFETIVIDADE_RQV'] = np.select(
+            [(df_rat_gdo['EFETIVIDADE_PARCIAL'] == 1) & (df_rat_gdo['EFICIENCIA_E_EFICACIA_RQV'] == 1)],
             [1],
             default=0
         )
-        return df_rat_gdo_23
+        df_rat_gdo['EFETIVIDADE_OLS'] = np.select(
+            [(df_rat_gdo['EFETIVIDADE_PARCIAL'] == 1) & (df_rat_gdo['EFICIENCIA_E_EFICACIA_OLS'] == 1)],
+            [1],
+            default=0
+        )
+        return df_rat_gdo
     
     def get_rqv_23(self):
-        df_rat_gdo_23 = self.get_rat_gdo()
-        df_rqv_23 = df_rat_gdo_23[
-            df_rat_gdo_23['NAT.CODIGO'].str.contains('Y0700(1|3|4|5)')
-        ]
+        df_rat_gdo = self.get_dados_rat_gdo()
+        df_rqv_23 = df_rat_gdo[
+            ( df_rat_gdo['NAT.CODIGO'].str.contains('Y0700(1|3|4|5)') ) &
+            ( ~ df_rat_gdo['NOM_UNID_RESPONSAVEL'].str.contains('(IND |B|C)PE') ) &
+            ( df_rat_gdo['EFICIENCIA_E_EFICACIA_RQV'] == 1 )
+        ]        
         return df_rqv_23
     
-    def get_registros_nao_classificados(tipo):
-        '''Retorna os registros de RAT ou BOS com SETOR == other'''        
-        query = '''
-        SELECT    
-            "RAT.NUM_ATIVIDADE",
-            "MUNICIPIO",
-            "LOGRADOURO",
-            "DES_ENDERECO",
-            "COMPLEMENTO_ENDERECO",
-            "NOME_BAIRRO",
-            "LOGRADOURO2",
-            "DES_ENDERECO2",
-            "SETOR",
-            "CIA"
-        FROM
-            tbl_{}
-        WHERE
-            (
-                "SETOR" == "other" or
-                "CIA" == "other"
-            )        
-        AND "MUNICIPIO" != "ITAUNA"
-        AND (
-            ( "NAT.CODIGO" IN ('Y07001', 'Y07003', 'Y07004', 'Y07005', 'Y04012') ) OR
-            ( "NAT.CODIGO" LIKE 'A19%' )
-        )        
-        '''.format(tipo)
+    def get_ols_23(self):
+        df_rat_gdo = self.get_dados_rat_gdo()
+        df_ols_23 = df_rat_gdo[
+            ( df_rat_gdo['NAT.CODIGO'] == 'Y04012' ) &
+            ( df_rat_gdo['EFETIVIDADE_OLS'] == 1 ) &
+            ( ~ df_rat_gdo['NOM_UNID_RESPONSAVEL'].str.contains('RV') )
+            
+        ]        
+        return df_ols_23
+    
+    def get_dados_pog_23(self):
+        string_naturezas_rat_pog = ", ".join('"{}"'.format(item) for item in constantes.NATUREZAS_POG)
+        with sqlite3.connect('gdo.db') as conn:
+            cursor = conn.cursor()
+            dados = cursor.execute('select * from "tbl_rat_geral" where "NAT.CODIGO" in ({})'.format(string_naturezas_rat_pog)).fetchall()
+        colunas = [ description[0] for description in cursor.description ]
+        df_rat_pog = pd.DataFrame(dados, columns = colunas)        
+        df_rat_pog.set_index('RAT.NUM_ATIVIDADE', inplace=True)
+        df_rat_pog_23 = df_rat_pog[
+            ( ~ df_rat_pog['NOM_UNID_RESPONSAVEL'].str.contains('(C|B)PE') ) &
+            ( ~ df_rat_pog['NOM_UNID_RESPONSAVEL'].str.contains('(MAMB|RV)') )
+        ]
+        return df_rat_pog_23
+    
+    def get_dados_ic_23(self):        
+        with sqlite3.connect('gdo.db') as conn:
+            cursor = conn.cursor()
+            dados = cursor.execute('select * from "tbl_bos_geral" where "NAT.CODIGO" like "A19%"').fetchall()
+        colunas = [ description[0] for description in cursor.description ]
+        df_ic_pog_23 = pd.DataFrame(dados, columns = colunas)
+        df_ic_pog_23.set_index('RAT.NUM_ATIVIDADE', inplace=True)        
+        return df_ic_pog_23
+    
+    def get_dados_bos_e_rat_gdo_e_pog(self, ano):
+        df_rqv_23 = tratador_de_arquivos().get_rqv_23()
+        df_rqv_23 = df_rqv_23[ df_rqv_23['ANO'] == 2021 ]
+        df_ols_23 = tratador_de_arquivos().get_ols_23()
+        df_ols_23 = df_ols_23[ df_ols_23['ANO'] == 2021 ]
+        df_pog_23 = tratador_de_arquivos().get_dados_pog_23()
+        df_pog_23 = df_pog_23[ df_pog_23['ANO'] == 2021 ]
+        df_ic_23 = tratador_de_arquivos().get_dados_ic_23()
+        df_ic_23 = df_ic_23[ df_ic_23['ANO'] == 2021 ]
 
-        return pd.read_sql(query, 'sqlite:///gdo.db')
+        df_rqv_23_por_mes_ee = pd.pivot_table(df_rqv_23, index='CIA',columns=['ANO', 'MES'],values='EFICIENCIA_E_EFICACIA_RQV',aggfunc='sum').fillna(0).astype('int16')
+        df_rqv_23_por_mes_ee.loc['TOTAL'] = df_rqv_23_por_mes_ee.sum()
+        df_rqv_23_por_mes_ee.loc[:,'ACUM'] = df_rqv_23_por_mes_ee.sum(axis=1)
+        df_rqv_23_por_mes_efet = pd.pivot_table(df_rqv_23, index='CIA',columns=['ANO', 'MES'],values='EFETIVIDADE_RQV',aggfunc='sum').fillna(0).astype('int16')
+        df_rqv_23_por_mes_efet.loc['TOTAL'] = df_rqv_23_por_mes_efet.sum()
+        df_rqv_23_por_mes_efet.loc[:,'ACUM'] = df_rqv_23_por_mes_efet.sum(axis=1)
+        df_ols_23_por_mes = pd.pivot_table(df_ols_23, index='CIA',columns=['ANO', 'MES'],values='EFETIVIDADE_OLS',aggfunc='sum').fillna(0).astype('int16')
+        df_ols_23_por_mes.loc['TOTAL'] = df_ols_23_por_mes.sum()
+        df_ols_23_por_mes.loc[:,'ACUM'] = df_ols_23_por_mes.sum(axis=1)
+        df_pog_23_por_mes = pd.pivot_table(df_pog_23, index='CIA',columns=['ANO', 'MES'],values='NAT.CODIGO',aggfunc='count').fillna(0).astype('int16')
+        df_pog_23_por_mes.loc['TOTAL'] = df_pog_23_por_mes.sum()
+        df_pog_23_por_mes.loc[:,'ACUM'] = df_pog_23_por_mes.sum(axis=1)
+        df_ic_23_por_mes = pd.pivot_table(df_ic_23, index='CIA',columns=['ANO', 'MES'],values='NAT.CODIGO',aggfunc='count').fillna(0).astype('int16')
+        df_ic_23_por_mes.loc['TOTAL'] = df_ic_23_por_mes.sum()
+        df_ic_23_por_mes.loc[:,'ACUM'] = df_ic_23_por_mes.sum(axis=1)
+        return {
+            'df_rqv_23' : df_rqv_23,
+            'df_ols_23': df_ols_23,
+            'df_pog_23': df_pog_23,
+            'df_ic_23': df_ic_23,
+            'df_rqv_23_por_mes_ee': df_rqv_23_por_mes_ee,
+            'df_rqv_23_por_mes_efet': df_rqv_23_por_mes_efet,
+            'df_ols_23_por_mes': df_ols_23_por_mes,
+            'df_pog_23_por_mes': df_pog_23_por_mes,
+            'df_ic_23_por_mes': df_ic_23_por_mes
+        }
+    
+    def registros_para_classificar(self, rat_ou_bos):
+        rat_ou_bos_lower = rat_ou_bos.lower()
+        naturezas = constantes.NATUREZAS_POG + ['Y07001', 'Y07003', 'Y07004', 'Y07005', 'Y04012']
+        string_naturezas_rat_pog = ", ".join('"{}"'.format(item) for item in naturezas)
+        query = '''
+            SELECT    
+                "RAT.NUM_ATIVIDADE",
+                "MUNICIPIO",
+                "LOGRADOURO",
+                "DES_ENDERECO",
+                "COMPLEMENTO_ENDERECO",
+                "NOME_BAIRRO",
+                "LOGRADOURO2",
+                "DES_ENDERECO2",
+                "SETOR",
+                "CIA"
+            FROM
+                tbl_{}_geral
+            WHERE
+                (
+                    "SETOR" == "SETOR_INDEFINIDO" or
+                    "CIA" == "CIA_INDEFINIDA"
+                )        
+            AND "MUNICIPIO" != "ITAUNA"
+            AND (
+                ( "NAT.CODIGO" IN ({}) ) OR
+                ( "NAT.CODIGO" LIKE "A19%" )
+            )        
+            '''.format(rat_ou_bos_lower, string_naturezas_rat_pog)
+        with sqlite3.connect('gdo.db') as conn:
+            cursor = conn.cursor()
+            dados = cursor.execute(query).fetchall()
+        colunas = [ description[0] for description in cursor.description ]
+        df_dados_para_classificar = pd.DataFrame(dados, columns = colunas)        
+        # df_dados_para_classificar.set_index('RAT.NUM_ATIVIDADE', inplace=True)                
+        return df_dados_para_classificar
     
 

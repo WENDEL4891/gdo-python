@@ -20,27 +20,27 @@ class dados_para_bd():
         logs.log_inicio_fim_metodo('Iniciando método dados_para_bd().dados_dos_arquivos_para_bd.')
         logs.log_inicio_fim_metodo('Dados tipo {} - {}'.format(rat_ou_bos_lower, tipo.lower()))
         logs.log('Iniciando método tratador_de_arquivos().get_nomes_de_arquivos()')
-        nomes_de_arquivos = tratador_de_arquivos().get_nomes_de_arquivos(rat_ou_bos=rat_ou_bos, apenas_nao_importados=apenas_nao_importados)
+        nomes_de_arquivos = tratador_de_arquivos().get_nomes_de_arquivos(rat_ou_bos=rat_ou_bos_upper, apenas_nao_importados=apenas_nao_importados)
         logs.log('Finalizando método tratador_de_arquivos().get_nomes_de_arquivos()')
 
         tipo_geral_argumento = True if tipo == 'geral' else False
 
         logs.log('Iniciando método tratador_de_arquivos().ler_arquivos()')
-        df_rat = tratador_de_arquivos().ler_arquivos(nomes_de_arquivos['{}_{}'.format(rat_ou_bos_lower, tipo)], rat_ou_bos=rat_ou_bos_lower, tipo_geral=tipo_geral_argumento)
+        df = tratador_de_arquivos().ler_arquivos(nomes_de_arquivos['{}_{}'.format(rat_ou_bos_lower, tipo)], rat_ou_bos=rat_ou_bos_lower, tipo_geral=tipo_geral_argumento)
         logs.log('Finalizando método tratador_de_arquivos().ler_arquivos()')
 
         if tipo == 'geral':        
             logs.log('Iniciando método tratador_de_arquivos().processa_dados()')
-            df_rat = tratador_de_arquivos().processa_dados(df_rat)        
+            df = tratador_de_arquivos().processa_dados(df)        
             logs.log('Finalizando método tratador_de_arquivos().processa_dados()')
 
             logs.log('Iniciando método tratador_de_arquivos().get_classif() e tratador_de_arquivos().classifica_setor()')
             df_classif = tratador_de_arquivos().get_df_classif()
-            df_rat['SETOR'] = df_rat.apply(lambda row: tratador_de_arquivos().classifica_setor(row, df_classif), axis=1)        
+            df['SETOR'] = df.apply(lambda row: tratador_de_arquivos().classifica_setor(row, df_classif), axis=1)        
             logs.log('Finalizando método tratador_de_arquivos().get_classif() e tratador_de_arquivos().classifica_setor()')
             
             logs.log('Iniciando método tratador_de_arquivos().classifica_cia()')
-            tratador_de_arquivos().classifica_cia(df_rat=df_rat)
+            tratador_de_arquivos().classifica_cia(df=df)
             logs.log('Finalizando método tratador_de_arquivos().classifica_cia()')
 
         tabelas_bd = {
@@ -52,14 +52,15 @@ class dados_para_bd():
 
         nome_tabela = tabelas_bd[tipo]
         
-        df_rat.to_sql(nome_tabela, 'sqlite:///gdo.db', if_exists='replace', index=False)
+        acao_se_tabela_existir = 'replace' if ( tipo == 'geral' and apenas_nao_importados == False ) else 'append'
+        
+        df.to_sql(nome_tabela, 'sqlite:///gdo.db', if_exists=acao_se_tabela_existir, index=False)
         print('dados exportados para o db ok')
 
-        del df_rat
-        logs.log('df_rat deleted')
+        del df
+        logs.log('df deleted')
         gc.collect()
 
-        acao_se_tabela_existir = 'replace' if ( tipo == 'geral' and apenas_nao_importados == False ) else 'append'
 
         logs.log('Iniciando a inclusão dos nomes dos arquivos importados no banco de dados')
         pd.DataFrame(nomes_de_arquivos['{}_{}'.format(rat_ou_bos_lower, tipo.lower())]).to_sql('tbl_arquivos_importados_{}'.format(rat_ou_bos_lower), 'sqlite:///gdo.db', if_exists=acao_se_tabela_existir, index=False)        

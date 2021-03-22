@@ -120,3 +120,11 @@ NATUREZAS_POG = [
         "Y10003", "Y10004", "Y10007", "Y10008", "Y10009", "Y10010", "Y10999", "Y15001",
         "Y15010", "Y15020", "Y15030", "Y15040", "Y15050", "Y15060", "Y15070", "Y15099"
 ]
+
+NOMES_TABELAS = {
+        'df_rqv_23_por_mes_ee': 'RQV - Eficiência e Eficácia',
+        'df_rqv_23_por_mes_efet': 'RQV - Efetividade',
+        'df_ols_23_por_mes': 'Op. Lei Seca (Efetividade)',
+        'df_ic_23_por_mes': 'Interação Comunitária',
+        'df_pog_23_por_mes': 'POG'
+}

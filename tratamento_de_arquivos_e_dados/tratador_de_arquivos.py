@@ -16,6 +16,7 @@ class tratador_de_arquivos:
         nomes_de_arquivos_viaturas = list()
         nomes_de_arquivos_efetivo = list()
         nomes_de_arquivos_produtividade = list()
+        nomes_de_arquivos_envolvidos = list()
 
         if apenas_nao_importados:
             df_arquivos_importados = pd.read_sql_table('tbl_arquivos_importados_{}'.format(rat_ou_bos_lower), 'sqlite:///gdo.db')
@@ -24,8 +25,9 @@ class tratador_de_arquivos:
         for nome_de_arquivo in nomes_de_arquivos:
             is_geral = 'REDS_{}_2'.format(rat_ou_bos_upper) in nome_de_arquivo
             is_viatura = 'REDS_{}_V'.format(rat_ou_bos_upper) in nome_de_arquivo
-            is_efetivo = 'REDS_{}_E'.format(rat_ou_bos_upper) in nome_de_arquivo
+            is_efetivo = 'REDS_{}_EF'.format(rat_ou_bos_upper) in nome_de_arquivo
             is_produtividade = 'REDS_{}_P'.format(rat_ou_bos_upper) in nome_de_arquivo
+            is_envolvido = f'REDS_{rat_ou_bos}_EN' in nome_de_arquivo
             if is_geral:
                 nomes_de_arquivos_geral.append(nome_de_arquivo)
             elif is_viatura:
@@ -34,6 +36,8 @@ class tratador_de_arquivos:
                 nomes_de_arquivos_efetivo.append(nome_de_arquivo)
             elif is_produtividade:
                 nomes_de_arquivos_produtividade.append(nome_de_arquivo)
+            elif is_envolvido:
+                nomes_de_arquivos_envolvidos.append(nome_de_arquivo)
                     
         nomes_de_arquivos_geral.sort(key=lambda name: int(name[9:17]))
         nomes_de_arquivos_viaturas.sort(key=lambda name: int(name[18:26]))

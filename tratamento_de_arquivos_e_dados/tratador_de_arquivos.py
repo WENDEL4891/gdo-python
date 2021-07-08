@@ -403,10 +403,21 @@ class tratador_de_arquivos:
         return df_ic_pog_23
     
     def get_dados_bos_e_rat_gdo_e_pog(self, ano):
+        
+        def classifica_rqv_e_ols_por_cia(row):
+            if '240 CIA' in row['NOM_UNID_RESPONSAVEL']:
+                return '240 CIA'
+            else:
+                return row['CIA']
+
         df_rqv_23 = tratador_de_arquivos().get_rqv_23()
         df_rqv_23 = df_rqv_23[ df_rqv_23['ANO'] == 2021 ]
+        df_rqv_23.loc[:,'CIA'] = df_rqv_23.apply(lambda row: classifica_rqv_e_ols_por_cia(row), axis=1)
+
         df_ols_23 = tratador_de_arquivos().get_ols_23()
         df_ols_23 = df_ols_23[ df_ols_23['ANO'] == 2021 ]
+        df_ols_23.loc[:,'CIA'] = df_ols_23.apply(lambda row: classifica_rqv_e_ols_por_cia(row), axis=1)
+        
         df_pog_23 = tratador_de_arquivos().get_dados_pog_23()
         df_pog_23 = df_pog_23[ df_pog_23['ANO'] == 2021 ]
         df_ic_23 = tratador_de_arquivos().get_dados_ic_23()
